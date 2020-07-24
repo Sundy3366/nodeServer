@@ -1,84 +1,48 @@
-const { User } = require('./models')
 const express = require('express')
-
+const user = require('./routes/user')
+const patient = require('./routes/patient')
+// const cors = require("cors"); //引入cors模块（解决跨域问题）
+const mongoose = require('mongoose')
+mongoose.connect('mongodb://localhost:27017/express-auth',{
+	// useNewUrlParser: true
+	useCreateIndex: true
+})
 const app = express()
-const SECRET = 'WERETERWQWR2E3R4TER433RWE'
-const jwt = require('jsonwebtoken')
-// const createError = require('http-errors')
-
+// var bodyParser = require('body-parser');
 app.use(express.json())
-
-app.get('/api/users', async (req, res) => {
-	const users = await User.find()
-	res.send(users)
-})
-
-app.post('/api/register', async (req, res) => {
-	const user = await User.create({
-		username: req.body.username,
-		password: req.body.password
-	})
-	res.send(user)
-})
-
-app.post('/api/login', async (req, res) => {
-	const user = await User.findOne({
-		username: req.body.username
-	})
-	// assert(user, 422, "用户不存在");
-	if(!user){
-		return res.status(422).send({
-			code: 0,
-			message: '用户名不存在'
-		})
-	}
-
-	const isPasswordValid =  require('bcrypt').compareSync(
-		req.body.password,
-		user.password
-		)
-	if(!isPasswordValid){
-		return res.status(422).send({
-			code: 0,
-			message: '密码无效'
-		})
-	}
-	// assert(isPasswordValid, 422, '密码错误');
-	//生成token
-	const token = jwt.sign({
-		id: String(user._id)
-	}, SECRET)
-
-
-	res.send({
-		code: 1,
-		user,
-		token: token,
-		msg: '登陆成功'
-	})
-})
-app.use(async (err, req, res, next) => {
-	res.status(err.statusCode || 500).send({ message: err.message });
+//解决post传输的数据格式问题
+// app.use(bodyParser.urlencoded({
+// 	extended: false
+// }))
+const createError = require('http-errors')
+// app.use(cors());
+// 下面的类似于http请求的头文件(另一篇文章有写到http请求，也是注册登录)
+app.all("*", function (req, res, next) {
+	//设置允许跨域的域名，*代表允许任意域名跨域
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Headers", "content-type"); //允许的header类型
+	res.header("Access-Control-Allow-Methods", "DELETE,PUT,POST,GET,OPTIONS"); //跨域允许的请求方式
+	next(); //是否继续向下执行
 });
-const auth = async (req, res, next) => {
-	const raw = String(req.headers.authorization).split(' ').pop()
-	const {id} =  jwt.verify(raw, SECRET)
-	req.user = await User.findById(id)
-	next()
-}
 
-app.get('/api/profile', auth, async (req, res) => {
+app.use('/user', user)
+app.use('/patient', patient)
+// catch 404 and forward to error handler
+app.use(function (req, res, next) {
+	next(createError(404));
+});
 
-	res.send(req.user)
-})
+// error handler
+app.use(function (err, req, res, next) {
+	// set locals, only providing error in development
+	res.locals.message = err.message;
+	res.locals.error = req.app.get('env') === 'development'? err : {};
 
-// app.get('/api/orders', auth, async (req, res) => {
-// 	const orders = await orders.find().where({
-// 		user: req.user
-// 	})
+	// render the error page
+	res.sendStatus(err.status || 500);
+	// res.render('error');
+});
 
-// 	res.send(orders)
-// })
 
 app.listen(3001, () => {
 	console.log('http://localhost:3001')
